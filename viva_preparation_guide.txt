@@ -1,0 +1,415 @@
+================================================================================
+IC-272: INTRO TO MACHINE LEARNING (IIT MANDI)
+COMPLETE VIVA PREPARATION GUIDE (LAB 1 TO LAB 9)
+================================================================================
+
+In IC-272, viva accounts for 40% to 80% of the total marks in every lab.
+The TAs do not just test if your code runs; they test if you understand:
+  1. Why standard algorithms fail under certain data conditions.
+  2. The mathematical and numerical reason behind every design choice.
+  3. How to read and interpret the plots and numbers on your screen.
+
+Below are the exact questions the TAs will ask, the concept behind them, and 
+the exact crisp answers that will score maximum marks.
+
+================================================================================
+LAB 1: NUMPY, VECTORIZATION & SCRATCH METRICS
+================================================================================
+
+Q1. "Why do we avoid Python 'for' loops in numerical computing and use vectorization?"
+  ANSWER:
+  - Python loops run in pure interpreted Python: each iteration involves dynamic 
+    type checking, pointer dereferencing, and significant overhead.
+  - NumPy vectorization pushes execution down to compiled, optimized C and Fortran 
+    routines (BLAS/LAPACK) utilizing contiguous memory buffers, SIMD vector CPU 
+    instructions, and cache locality. It is typically 50x to 200x faster.
+
+Q2. "Explain how pairwise_distances works using broadcasting without any loops."
+  ANSWER:
+  - If A has shape (n, d) and B has shape (m, d):
+    We expand dimensions: A[:, np.newaxis, :] becomes (n, 1, d) and 
+    B[np.newaxis, :, :] becomes (1, m, d).
+  - When subtracting, NumPy broadcasts both along the singleton dimensions to shape 
+    (n, m, d), computing every difference (A_ik - B_jk) in parallel.
+  - We square, sum over the feature dimension (axis=2), and take the square root 
+    to obtain the (n, m) Euclidean distance matrix.
+
+Q3. "What is the orientation of your 2x2 confusion matrix?"
+  ANSWER:
+  - Rows represent the TRUE labels (Row 0 = True 0, Row 1 = True 1).
+  - Columns represent the PREDICTED labels (Col 0 = Pred 0, Col 1 = Pred 1).
+      [[TN, FP],
+       [FN, TP]]
+  - Row 0 sums to all actual negatives; Row 1 sums to all actual positives.
+
+Q4. "Why is Accuracy misleading on imbalanced datasets?"
+  ANSWER:
+  - On a dataset where 95% of samples belong to class 0, a trivial 'dumb' predictor 
+    that outputs class 0 for every single sample achieves 95% accuracy while 
+    detecting zero positive instances (Recall = 0.0).
+  - That is why Precision, Recall, and F1-score are necessary.
+
+Q5. "What is the difference between Micro-F1 and Macro-F1 in multiclass problems?"
+  ANSWER:
+  - Macro-F1 calculates F1 independently for each class and takes the unweighted mean. 
+    It treats all classes equally, highlighting poor performance on minority classes.
+  - Micro-F1 pools global TP, FP, FN across all classes before computing F1; it is 
+    dominated by majority classes.
+
+================================================================================
+LAB 2: PANDAS PIPELINES & DATA LEAKAGE
+================================================================================
+
+Q1. "What is Data Leakage, and why is the order of operations in Block 2 so critical?"
+  ANSWER:
+  - Data leakage occurs when information from outside the training dataset (i.e. test 
+    set or ground truth labels) is inadvertently used to train or preprocess the model.
+  - If you compute the median across the whole dataset before splitting, the test set's 
+    distribution leaks into training, giving artificially optimistic test scores.
+  - GOLDEN RULE: Split train/test FIRST. Compute medians, scalers, and categorical 
+    vocabularies strictly on the training set, then transform the test set using 
+    those exact training values.
+
+Q2. "Why can we NOT use group-wise median imputation in a production ML pipeline?"
+  ANSWER:
+  - In Block 1 Task 2, we imputed missing temperatures using the median of that 
+    row's 'needs_service' class label.
+  - At test/prediction time, the label 'needs_service' is unknown—it is the very 
+    variable we are trying to predict! Imputing using the label is impossible on unseen data.
+  - Group-wise imputation is useful for exploratory data analysis, but a deployed pipeline 
+    must use global or feature-based imputation.
+
+Q3. "What does global median imputation do to the minority class?"
+  ANSWER:
+  - Because the majority class dominates the sample count, the global median sits 
+    very close to the majority class central tendency.
+  - Imputing missing values in the minority class with the global median drags those 
+    minority samples into the majority cluster, blurring the boundary and destroying 
+    class separability.
+
+Q4. "What baseline numbers did you record, and what is their significance?"
+  ANSWER:
+  - The majority-class baseline predicts the most frequent training label for all test rows.
+  - It yields respectable accuracy (e.g. 70-80%), but exactly 0.0 Recall and 0.0 F1 
+    on the positive minority class.
+  - This baseline represents the absolute performance floor: any real model must 
+    comfortably beat this baseline to have practical utility.
+
+Q5. "What happens if a category appears in the test set that was never seen in training?"
+  ANSWER:
+  - In one-hot encoding, that category will have no corresponding column in the training 
+    feature matrix, resulting in a shape mismatch.
+  - In practice, we assign all unseen categories to an 'Other' / unknown column, or 
+    encode them as all zeros across the known category indicator columns.
+
+================================================================================
+LAB 3: VISUALIZATION & DIAGNOSTICS
+================================================================================
+
+Q1. "Looking at the 2x3 histogram grid of features, which feature dominates distance and why?"
+  ANSWER:
+  - The feature with the largest numerical spread (variance / standard deviation) 
+    dominates Euclidean distance.
+  - Euclidean distance squares differences: (x_1 - x_2)^2. If feature A varies in 
+    thousands and feature B varies in units of 0.1, feature A accounts for >99.9% 
+    of the squared distance, causing nearest-neighbor models to completely ignore feature B.
+
+Q2. "In the confusion matrix heatmap, one column is completely empty. What does that mean?"
+  ANSWER:
+  - Columns represent PREDICTIONS. An empty column means the model NEVER predicted 
+    that class for any sample in the test set.
+  - (If a row were empty, it would mean that true class had no samples).
+
+Q3. "Why does the global-imputed histogram develop a sharp unnatural spike?"
+  ANSWER:
+  - Real measurements have natural variance. Imputing every missing entry with the 
+    single scalar median artificially piles all missing entries into a single bin, 
+    distorting the probability density and variance of that feature.
+
+Q4. "In the threshold sweep, why did the group-wise imputed curve achieve artificially high F1?"
+  ANSWER:
+  - In group-wise imputation, missing positive samples received the class 1 median 
+    (which was higher), while missing negative samples received the class 0 median.
+  - The imputation itself used the ground truth label to separate the classes! 
+    This is pure data leakage: the model didn't learn to separate them, the preprocessing 
+    separated them for it.
+
+Q5. "Why do Precision and Recall move in opposite directions as threshold t increases?"
+  ANSWER:
+  - As t increases, the model becomes more conservative/strict: only highly confident 
+    samples are predicted positive.
+  - Fewer False Positives occur -> Precision increases.
+  - More actual positives are missed (higher False Negatives) -> Recall decreases.
+
+================================================================================
+LAB 4: LINEAR REGRESSION FROM SCRATCH
+================================================================================
+
+Q1. "Why must you use np.linalg.solve(A.T @ A, A.T @ y) instead of np.linalg.inv?"
+  ANSWER:
+  - Computing the explicit inverse (A^T A)^(-1) requires O(2 d^3) floating point operations 
+    and is numerically ill-conditioned (amplifies roundoff errors if condition number is high).
+  - np.linalg.solve computes the solution directly using LU or Cholesky decomposition 
+    in O(2/3 d^3) operations, guaranteeing higher numerical precision and stability.
+
+Q2. "What happens when you run gradient descent with lr = 0.01?"
+  ANSWER:
+  - The learning rate exceeds the theoretical stability limit: eta > 2 / lambda_max(A^T A).
+  - The updates overshoot the minimum of the parabolic loss surface, causing the weights 
+    and loss J(theta) to oscillate with growing amplitude until numerical overflow (NaN/inf).
+
+Q3. "What does your residual plot (y - y_hat vs y_hat) show and what does it NOT show?"
+  ANSWER:
+  - WHAT IT SHOWS: Whether the linear model assumptions hold. In a valid fit, residuals 
+    must be symmetrically and randomly scattered around zero with constant variance 
+    (homoscedasticity).
+  - WHAT IT DOES NOT SHOW: It does not prove that the chosen features are the causal 
+    drivers of y, nor does it guarantee the absence of omitted variable bias.
+  - If a curved pattern appears, it reveals that the true relationship is non-linear 
+    and a linear model is underfitting.
+
+Q4. "What is R^2 and can it be negative?"
+  ANSWER:
+  - R^2 = 1 - (SS_res / SS_tot). It measures the proportion of variance in y explained 
+    by the linear model relative to a naive model predicting the mean y_bar.
+  - YES, R^2 can be negative on test data if the model performs worse than simply 
+    predicting the training mean y_bar (indicating severe overfitting or a broken fit).
+
+================================================================================
+LAB 5: STANDARDISATION & RIDGE REGRESSION
+================================================================================
+
+Q1. "Why must features be standardised before applying Ridge (L2) regression?"
+  ANSWER:
+  - The Ridge penalty adds lambda * sum(theta_j^2). It penalises the magnitude of 
+    coefficients equally.
+  - If feature A has scale 1000 (needs tiny weight 0.001) and feature B has scale 
+    0.01 (needs huge weight 100), Ridge will crush feature B's weight to zero while 
+    ignoring feature A, regardless of which feature is actually informative!
+  - Standardisation ensures every feature has mean 0 and variance 1, placing all 
+    coefficients on an equal, comparable footing.
+
+Q2. "Why must the intercept theta_0 be EXEMPT from the Ridge penalty?"
+  ANSWER:
+  - The intercept theta_0 represents the baseline level/mean of the target variable.
+  - Penalising theta_0 drags predictions toward zero, which is physically meaningless 
+    if rents or prices have a non-zero baseline. We only want to penalise feature slopes.
+  - We set penalty_matrix[0, 0] = 0.0.
+
+Q3. "Does Ridge regression ever drive coefficients to EXACT zero?"
+  ANSWER:
+  - NO. Ridge shrinks coefficients toward zero asymptotically, but because the L2 
+    penalty has a smooth parabolic derivative 2*theta_j, the gradient vanishes as 
+    theta_j approaches 0.
+  - To get exact zeros (feature selection / sparsity), Lasso (L1) with soft-thresholding 
+    is required.
+
+Q4. "Why can lambda NOT be chosen from the training error or the test error?"
+  ANSWER:
+  - The training loss always prefers lambda = 0 because adding any penalty strictly 
+    increases training MSE.
+  - Choosing lambda on the test set is data leakage: the test set would influence 
+    hyperparameter selection and no longer provide an unbiased estimate of generalization.
+  - Lambda must be chosen via K-Fold Cross-Validation strictly on the training set.
+
+Q5. "How do you recover original unstandardised weights w and bias b?"
+  ANSWER:
+  - w_j = theta_j / sigma_j
+  - b   = theta_0 - sum_j (theta_j * mu_j / sigma_j)
+
+================================================================================
+LAB 6: k-NEAREST NEIGHBOURS & CROSS-VALIDATION
+================================================================================
+
+Q1. "Why did linear regression fail on the vibration dataset while k-NN succeeded?"
+  ANSWER:
+  - The faulty machines formed a concentric ring around normal machines.
+  - No straight line (hyperplane) can separate a circle/ring from its center.
+  - k-NN is non-parametric and draws no geometric line; it takes a local majority vote 
+    of nearby neighbors, so non-linear curved decision boundaries cost it nothing.
+
+Q2. "What is the Scale Dominance Problem in distance-based models?"
+  ANSWER:
+  - 'machine_hours' had standard deviation ~14,590 while vibrations had sd ~1.73.
+  - In Euclidean distance, squaring a 10,000 difference yields 10^8, while vibration 
+    difference squared is ~9.
+  - machine_hours contributed >99.999% of distance, turning k-NN into a 1D lookup 
+    on overhaul hours while completely ignoring vibration.
+  - Standardisation scales all features to unit variance, allowing vibration to guide predictions.
+
+Q3. "What are the two failure modes at the extreme ends of the k-NN accuracy curve?"
+  ANSWER:
+  - At k = 1: OVERFITTING (High Variance). The model memorises individual noise points 
+    and creates jagged, ragged decision boundaries.
+  - At k = 75 (large k): UNDERFITTING (High Bias). The neighborhood becomes so large 
+    that it crosses class boundaries and is overwhelmed by the global class prior, 
+    smoothing away local patterns.
+
+Q4. "In k-fold CV for k-NN, why must the validation fold be removed from X_train?"
+  ANSWER:
+  - If validation rows remain in X_train, every query point finds ITSELF at distance 0.
+  - For k = 1, it always predicts its own true label, producing a fake 100% accuracy.
+
+Q5. "What is the Curse of Dimensionality in k-NN (Homework H1)?"
+  ANSWER:
+  - As unrelated noise dimensions are added, the volume of high-dimensional space 
+    grows exponentially, causing all data points to become equidistant.
+  - The ratio min(D) / max(D) approaches 1.0; the 'nearest' neighbor is barely closer 
+    than the 'furthest' neighbor, destroying distance-based discrimination.
+
+================================================================================
+LAB 7: LOGISTIC REGRESSION & ROC/AUC
+================================================================================
+
+Q1. "Why can we not use Linear Regression directly for binary classification?"
+  ANSWER:
+  - Linear regression predicts an unbounded continuous range (-inf, +inf).
+  - On our loan dataset, it predicted negative probabilities (as low as -0.556) and 
+    probabilities > 1.0, which violate the axioms of probability.
+  - Sigmoid maps the linear combination theta^T x smoothly into valid probabilities (0, 1).
+
+Q2. "Why do we add 1e-12 inside np.log in the log-likelihood function?"
+  ANSWER:
+  - If the model predicts a probability of exactly 0.0 or 1.0, evaluating np.log(0.0) 
+    yields -inf or causes a runtime warning / NaN that corrupts the gradient update.
+
+Q3. "Check as you go: What is the log-likelihood per sample at theta = 0?"
+  ANSWER:
+  - At theta = 0, z = 0, so sigmoid(0) = 0.5 for all samples.
+  - The log-likelihood per sample is:
+      y * log(0.5) + (1 - y) * log(0.5) = log(0.5) = -ln(2) approx -0.693147.
+  - If your code outputs anything else at theta = 0, your log-likelihood is wrong.
+
+Q4. "Why does the gradient ascent update have a PLUS sign?"
+  ANSWER:
+  - We are performing Maximum Likelihood Estimation (MLE), which MAXIMISES the 
+    log-likelihood objective ell(theta).
+  - In linear regression we minimise loss (descent = minus); in logistic regression 
+    we maximise likelihood (ascent = plus).
+
+Q5. "Why would a bank prefer threshold t = 0.3 instead of t = 0.5?"
+  ANSWER:
+  - Classification costs are asymmetric. A missed loan default (False Negative) costs 
+    the bank thousands in bad debt, whereas wrongly denying a loan (False Positive) 
+    only costs a small processing fee / lost interest.
+  - Lowering threshold to 0.3 aggressively increases Recall (catches more defaulters), 
+    protecting the bank's capital.
+
+Q6. "What do AUC = 0.5 and AUC = 1.0 mean?"
+  ANSWER:
+  - AUC = 0.5 represents a completely random, useless classifier (diagonal line).
+  - AUC = 1.0 represents a perfect classifier that ranks every positive instance 
+    above every negative instance with zero overlap.
+
+================================================================================
+LAB 8: NAIVE BAYES (GAUSSIAN & CATEGORICAL)
+================================================================================
+
+Q1. "What is the difference between Logistic Regression and Naive Bayes?"
+  ANSWER:
+  - Logistic Regression is DISCRIMINATIVE: it models P(y | x) directly by fitting a 
+    decision boundary.
+  - Naive Bayes is GENERATIVE: it models P(x | y) (how each class generates data) 
+    and class priors P(y), then uses Bayes' rule to compute posterior P(y | x).
+
+Q2. "Why does Naive Bayes perform all calculations in log space?"
+  ANSWER:
+  - Multiplying hundreds of small probabilities (e.g. 0.01^400) results in numbers 
+    around 10^-800, which underflow to exact 0.0 in 64-bit floating point arithmetic.
+  - In log space, products turn into sums: sum(log P) is well-conditioned (e.g. -1842.0) 
+    and completely avoids floating point underflow.
+
+Q3. "How does predict_proba_nb convert log scores L0 and L1 to probability without underflow?"
+  ANSWER:
+  - P(y = 1 | x) = e^L1 / (e^L0 + e^L1).
+  - Dividing numerator and denominator by e^L1 gives:
+      1 / (1 + e^-(L1 - L0)) = sigmoid(L1 - L0).
+  - By passing the difference (L1 - L0) into the sigmoid function, we compute probabilities 
+    directly without evaluating huge or tiny exponential terms.
+
+Q4. "What is the Zero-Probability Problem and how does Laplace smoothing fix it?"
+  ANSWER:
+  - If a discrete category (e.g. 'Student') never appeared in class 1 during training, 
+    maximum likelihood sets P('Student' | Class 1) = 0.
+  - Because features are multiplied, that single zero wipes out all other positive 
+    evidence, making P(Class 1 | x) = 0.
+  - Laplace smoothing adds a pseudo-count l = 1 to the numerator and l * K to the 
+    denominator: (count + 1) / (n_c + K). Every category retains a non-zero probability.
+
+Q5. "What happens when you duplicate a feature (breaking the Naive assumption)?"
+  ANSWER:
+  - If feature x_1 is duplicated 3 times, Naive Bayes assumes 3 independent sources of 
+    evidence and cubes the likelihood ratio.
+  - The model becomes extremely overconfident (probabilities push to 0.999 or 0.001), 
+    but its actual accuracy and AUC do not improve.
+
+Q6. "Why is Gaussian Naive Bayes' decision boundary curved while Logistic Regression is straight?"
+  ANSWER:
+  - Logistic Regression assumes a linear boundary w^T x + b = 0.
+  - Gaussian NB has a quadratic boundary when the two classes have DIFFERENT fitted 
+    variances (sigma_0^2 != sigma_1^2), because the (x - mu)^2 / (2 sigma^2) terms 
+    do not cancel out, resulting in quadratic curves (parabolas/ellipses).
+
+================================================================================
+LAB 9: K-MEANS CLUSTERING
+================================================================================
+
+Q1. "Contrast k-NN and K-Means."
+  ANSWER:
+  - k-NN is SUPERVISED (requires labels); K-Means is UNSUPERVISED (no labels).
+  - In k-NN, 'k' is the number of voting neighbors for a query point.
+  - In K-Means, 'K' is the number of clusters/centroids to discover.
+  - k-NN chooses k via cross-validation accuracy; K-Means chooses K via the elbow method.
+
+Q2. "Prove why the K-Means algorithm is guaranteed to converge."
+  ANSWER:
+  - The objective is distortion J = sum ||x_i - mu_{c_i}||^2.
+  - In the Assignment step, each point is assigned to its closest centroid, which 
+    strictly decreases or keeps J constant.
+  - In the Update step, setting the centroid to the cluster mean minimizes the sum 
+    of squared distances for that cluster, strictly decreasing or keeping J constant.
+  - Since there is a finite number of possible cluster assignments (K^n) and J is 
+    bounded below by 0, J must converge to a minimum.
+
+Q3. "Why does K-Means get stuck in Local Minima and how do we resolve it?"
+  ANSWER:
+  - K-Means is a greedy coordinate descent algorithm; if bad initial centroids are 
+    chosen (e.g. two centroids in one natural cluster and none in another), the update 
+    step cannot jump across empty space to reassign them.
+  - RESOLUTIONS:
+    1. Run K-Means multiple times with different random seeds and keep the clustering 
+       with lowest distortion J (best_of_kmeans).
+    2. Use K-Means++ initialization, which spreads initial centroids far apart with 
+       probability proportional to squared distance D(x)^2.
+
+Q4. "Why can we NOT choose K by picking the K that minimizes distortion J?"
+  ANSWER:
+  - Distortion J decreases monotonically as K increases.
+  - At K = n (every point is its own centroid), J = 0.
+  - Therefore, minimizing J would trivially pick K = n, which provides no clustering.
+  - We use the Elbow Method: we look for the point of diminishing returns where 
+    increasing K yields a sharp bend in the rate of distortion drop.
+
+Q5. "Why is K-Means sensitive to outliers and feature scaling?"
+  ANSWER:
+  - SENSITIVITY TO SCALE: Like k-NN, K-Means uses Euclidean distance. An unstandardised 
+    high-variance column dominates the distance, clustering data solely along that axis.
+  - SENSITIVITY TO OUTLIERS: Distortion squares distances. A single distant outlier 
+    exerts an enormous pull on the nearest centroid, wasting an entire cluster just 
+    to accommodate the outlier and forcing real clusters to merge.
+
+================================================================================
+CRITICAL VIVA NUMERICAL CHECKS (REMEMBER THESE NUMBERS)
+================================================================================
+1. Lab 4 Demo line: Area [5, 6, 7, 8, 9], Rent [35, 42, 46, 55, 60]
+   -> w = 6.3, b = 3.5, SSE = 4.3.
+2. Lab 6 Vibration Majority Baseline on Test:
+   -> 0.55 (Unstandardised k-NN fails to beat 0.55; standardised beats it easily).
+3. Lab 7 Log-likelihood at theta = 0:
+   -> Total / n = log(0.5) approx -0.693147.
+4. Lab 7 Loans Repaid Baseline on Test:
+   -> 0.70 (30% default rate; model must comfortably beat 0.70).
+5. Lab 8 Heights Worked Example:
+   -> Class A [160, 170, 165], Class B [150, 155, 145], Test x = 162.
+   -> P(162 | A) approx 0.0746, P(162 | B) approx 0.0013, Posterior approx 0.98 for A.
+================================================================================
