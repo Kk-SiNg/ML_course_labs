@@ -1,0 +1,446 @@
+================================================================================
+PYTHON ML CHEATSHEET: NUMPY, PANDAS, MATPLOTLIB
+Tailored for IC-272 (Intro to Machine Learning Labs 1 - 9)
+================================================================================
+
+TABLE OF CONTENTS:
+1. NumPy: Creation, Shapes, Slicing & Broadcasting
+2. NumPy: Statistics, Math, Linear Algebra & Random
+3. Pandas: Inspection, Filtering, Imputation, GroupBy & Conversion
+4. Matplotlib: Figure/Axes Model, Plots, Heatmaps & Formatting
+5. Golden Rules & Idioms for Machine Learning
+
+================================================================================
+PART 1: NUMPY CHEATSHEET
+================================================================================
+
+--- 1.1 ARRAY CREATION ---
+
+np.array(object, dtype=None)
+  - Creates an ndarray from a Python list or list-of-lists.
+  - Example: np.array([1, 2, 3], dtype=float)
+
+np.zeros(shape) / np.ones(shape)
+  - Creates array filled with 0s or 1s.
+  - shape: tuple, e.g., (n, d) for 2D matrix, (n,) for 1D vector.
+  - Example: theta = np.zeros(d)
+             ones = np.ones((len(X), 1))
+
+np.zeros_like(a) / np.ones_like(a)
+  - Creates array of zeros or ones with the exact same shape and dtype as array a.
+  - Example: new_centroids = np.zeros_like(centroids)
+
+np.full(shape, fill_value) / np.full_like(a, fill_value)
+  - Array filled with a constant scalar value.
+  - Example: y_pred = np.full_like(y_test, fill_value=majority_class)
+
+np.arange(start, stop=None, step=1)
+  - Half-open interval [start, stop) with step.
+  - Example: np.arange(10) -> [0, 1, ..., 9]
+
+np.linspace(start, stop, num=50)
+  - Generates 'num' evenly spaced values on CLOSED interval [start, stop].
+  - Essential for threshold sweeps and decision boundaries.
+  - Example: thresholds = np.linspace(np.min(values), np.max(values), 100)
+
+np.eye(N)
+  - Returns N x N identity matrix with 1s on main diagonal and 0s elsewhere.
+  - Essential for Ridge penalty matrix.
+  - Example:
+      penalty_matrix = np.eye(d)
+      penalty_matrix[0, 0] = 0.0  # Intercept exempt!
+
+
+--- 1.2 SHAPES, RESHAPING & CONCATENATION ---
+
+arr.shape
+  - Tuple of array dimensions. E.g. (300, 5).
+  - CRITICAL: (n,) is a 1D vector (rank 1); (n, 1) is a 2D column vector.
+
+arr.reshape(new_shape)
+  - Reshapes array without copying data. One dimension can be -1 (inferred).
+  - Example: x.reshape(-1, 1) turns 1D array of shape (n,) into column vector (n, 1).
+
+np.c_[a, b] (Column-wise stacking)
+  - Translates slice objects to concatenation along the second axis.
+  - Perfect for building design matrix A by prepending ones!
+  - Example: A = np.c_[np.ones(len(X)), X]  # Shape: (n, d + 1)
+
+np.r_[a, b] (Row-wise stacking)
+  - Concatenates arrays along first axis.
+  - Example: full_theta = np.r_[b, w]
+
+np.concatenate([a, b, ...], axis=0)
+  - Glues list of arrays along existing axis.
+  - Essential for combining folds in cross-validation.
+  - Example: train_idx = np.concatenate([folds[j] for j in range(k) if j != i])
+
+np.array_split(ary, indices_or_sections)
+  - Splits array into k equal or near-equal sub-arrays. Does NOT fail when n is not divisible by k!
+  - Essential for k-fold CV.
+  - Example: folds = np.array_split(shuffled_indices, 5)
+
+arr[:, np.newaxis] or arr[:, None]
+  - Inserts a new dimension of size 1.
+  - Essential for BROADCASTING pairwise distances:
+      diff = A[:, np.newaxis, :] - B[np.newaxis, :, :]  # (n, 1, d) - (1, m, d) -> (n, m, d)
+
+arr.flatten() / arr.ravel()
+  - Flattens 2D/3D array into 1D array.
+  - Example: axes = axes.flatten()  # lets you loop over 2x3 subplot grid with axes[i]
+
+
+--- 1.3 REDUCTIONS & STATISTICS (THE AXIS RULE) ---
+
+THE AXIS RULE:
+  - axis=0 : Collapses ROWS (moves down columns) -> gives 1 stat per COLUMN.
+  - axis=1 : Collapses COLUMNS (moves across rows) -> gives 1 stat per ROW.
+
+np.mean(a, axis=None)
+  - Mean of array elements.
+  - Example: mu = np.mean(X_train, axis=0)  # Shape (d,) - mean of each feature
+
+np.std(a, axis=None)
+  - Standard deviation.
+  - Example: sigma = np.std(X_train, axis=0) # Shape (d,)
+
+np.var(a, axis=None)
+  - Variance. Divides by N (MLE estimate, as used in Lab 8 Gaussian NB).
+  - Example: variances = np.var(X[y == c], axis=0)
+
+np.min(a, axis=None) / np.max(a, axis=None)
+  - Minimum / Maximum value.
+  - Example: min_val = np.min(X, axis=0)
+
+np.sum(a, axis=None)
+  - Sum of elements.
+  - Example:
+      (y_true == 1) & (y_pred == 1)   # Boolean array
+      np.sum(...)                      # Counts True values (treats True=1, False=0)
+
+np.diff(a)
+  - Calculates n-th discrete difference along given axis: out[i] = a[i+1] - a[i].
+  - Essential for trapezoid AUC: diff_fpr = np.diff(fpr)
+
+
+--- 1.4 SEARCHING, SORTING & INDEXING ---
+
+np.argmin(a, axis=None) / np.argmax(a, axis=None)
+  - Returns indices of minimum / maximum values along axis.
+  - Example:
+      closest_cluster = np.argmin(distances, axis=1) # Closest centroid for each row
+
+np.argsort(a, axis=-1)
+  - Returns the indices that would sort an array.
+  - Essential for k-NN without loops:
+      D = pairwise_distances(X_query, X_train)      # (n_query, n_train)
+      nearest_idx = np.argsort(D, axis=1)[:, :k]   # First k columns are nearest!
+      neighbor_votes = y_train[nearest_idx]         # (n_query, k)
+
+np.unique(ar, return_counts=False)
+  - Returns sorted unique elements of an array.
+  - Example: classes = np.unique(y)
+
+np.where(condition, x, y)
+  - Returns elements chosen from x or y depending on condition.
+  - If x and y omitted, returns tuple of coordinate indices where condition is True.
+  - Example:
+      X_clipped = np.where(X > t, t, X.copy())
+      class_0_idx = np.where(y == 0)[0]
+
+np.take_along_axis(arr, indices, axis)
+  - Takes values from arr at specified indices along axis.
+  - Useful for distance-weighted k-NN:
+      dists_k = np.take_along_axis(D, nearest_idx, axis=1)
+
+
+--- 1.5 MATH & ELEMENT-WISE OPERATIONS ---
+
+np.sqrt(x)  - Square root element-wise.
+np.exp(x)   - Exponential e^x.
+np.log(x)   - Natural logarithm ln(x). NOTE: log(0) = -inf, so add eps: np.log(p + 1e-12).
+np.abs(x)   - Absolute value |x|.
+np.sign(x)  - Returns -1 if x < 0, 0 if x == 0, +1 if x > 0. (Used in Lasso soft threshold).
+np.maximum(x1, x2) - Element-wise maximum of two arrays. E.g. np.maximum(np.abs(v) - t, 0.0).
+np.clip(a, a_min, a_max) - Clamps values between [a_min, a_max].
+  - Prevents overflow in sigmoid: np.clip(z, -500, 500).
+np.allclose(a, b, rtol=1e-05, atol=1e-08)
+  - Returns True if two arrays are element-wise equal within a tolerance.
+  - Used for K-means convergence check: if np.allclose(centroids, new_centroids): break.
+  - Never compare floating point numbers with '=='! Use np.allclose.
+
+
+--- 1.6 LINEAR ALGEBRA (np.linalg) ---
+
+A @ B
+  - Matrix multiplication operator (equivalent to np.matmul(A, B) or np.dot(A, B)).
+
+A.T
+  - Matrix transpose.
+
+np.linalg.solve(A, b)
+  - Solves linear matrix equation A @ x = b.
+  - For Normal Equation: theta = np.linalg.solve(A.T @ A, A.T @ y)
+  - WHY NOT np.linalg.inv? solve() uses LU decomposition, which is faster and 
+    numerically far more stable than calculating the explicit inverse.
+
+np.linalg.norm(x, ord=2, axis=None)
+  - Matrix or vector norm (Euclidean length).
+
+
+--- 1.7 RANDOM NUMBER GENERATOR (np.random) ---
+
+rng = np.random.default_rng(seed)
+  - Modern, reproducible NumPy random generator.
+
+rng.permutation(x)
+  - Randomly permutes a sequence or returns a permuted range.
+  - Example: idx = rng.permutation(len(y))
+
+rng.choice(a, size=None, replace=True, p=None)
+  - Generates a random sample from a given 1D array.
+  - replace=False: sample without replacement (used for K-means random_init).
+  - p: array of probabilities (used for K-means++ initialization where p = D(x)^2 / sum(D^2)).
+  - Example: init_idx = rng.choice(len(X), K, replace=False)
+
+rng.normal(loc=0.0, scale=1.0, size=None)
+  - Draws random samples from Gaussian (normal) distribution.
+
+
+================================================================================
+PART 2: PANDAS CHEATSHEET
+================================================================================
+
+--- 2.1 LOADING & INSPECTING ---
+
+df = pd.read_csv("filename.csv")
+  - Reads CSV into DataFrame.
+
+df.shape
+  - Returns (num_rows, num_columns).
+
+df.columns
+  - Index object of column names. E.g. [c for c in df.columns if c != "target"]
+
+df.dtypes
+  - Data types of every column.
+
+df.head(n=5) / df.tail(n=5)
+  - First / Last n rows.
+
+df.info()
+  - Summary of index, columns, non-null counts, and memory usage.
+
+df.describe()
+  - Summary statistics (count, mean, std, min, 25%, 50%, 75%, max) for numeric columns.
+
+
+--- 2.2 MISSING VALUES ---
+
+df.isna() / df.isnull()
+  - Returns boolean DataFrame of same shape (True where NaN).
+
+df.isna().sum()
+  - Counts missing values per column.
+
+df.isna().sum().sum()
+  - Counts total missing values in the entire DataFrame.
+
+df.fillna(value)
+  - Fills missing values with scalar, dictionary, or Series.
+  - Example:
+      med = df["temperature"].median()
+      df["temperature"] = df["temperature"].fillna(med)
+
+df.dropna(subset=None)
+  - Drops rows containing NaN.
+
+
+--- 2.3 INDEXING, FILTERING & SELECTION ---
+
+df["col_name"]
+  - Returns a Series (single column).
+
+df[["col1", "col2"]]
+  - Returns a DataFrame (multiple columns).
+
+df.loc[row_indexer, col_indexer]
+  - Label-based indexing.
+  - Avoids SettingWithCopyWarning!
+  - Example: df.loc[df["age"] > 30, "status"] = 1
+
+df.iloc[row_positions, col_positions]
+  - Integer-position based indexing (0 to length-1).
+  - Example:
+      train_df = df.iloc[train_idx].copy().reset_index(drop=True)
+
+df.reset_index(drop=True)
+  - Resets the index to 0, 1, 2... after row filtering.
+  - drop=True discards old index instead of adding it as a column.
+
+BOOLEAN FILTERING:
+  - Must use '&' (AND), '|' (OR), '~' (NOT) with parentheses around EACH condition!
+  - Example: subset = df[(df["temperature"] > 50) & (df["needs_service"] == 1)]
+
+
+--- 2.4 SUMMARIES & GROUPING ---
+
+series.value_counts(normalize=False)
+  - Returns frequency counts of unique values.
+  - normalize=True gives fractions/percentages.
+  - Example: df["needs_service"].value_counts(normalize=True)
+
+series.unique() / series.nunique()
+  - Returns numpy array of distinct values / count of distinct values.
+
+series.mode()[0]
+  - Returns the most frequent value (used for majority class baseline).
+
+df.groupby(by)
+  - Groups DataFrame by one or more columns.
+
+df.groupby("class")["col"].transform("median")
+  - CRITICAL METHOD: transform computes group medians but RETURNS A SERIES OF THE
+    EXACT SAME LENGTH AS df, matching each row to its class median!
+  - Example: df["temp_group_imputed"] = df.groupby("needs_service")["temperature"].transform("median")
+
+df.groupby("class").apply(func)
+  - Applies arbitrary function to each group subset.
+  - Example: df.groupby("needs_service").apply(lambda g: g.isna().mean())
+
+
+--- 2.5 ONE-HOT ENCODING & NUMPY CONVERSION ---
+
+pd.get_dummies(data, prefix=None, dtype=int)
+  - Converts categorical variable into dummy/indicator columns.
+  - Example: pd.get_dummies(df["machine_type"], prefix="type", dtype=int)
+
+df.to_numpy(dtype=float) / df["col"].to_numpy()
+  - Converts Pandas DataFrame/Series to NumPy ndarray.
+  - Example: X = df[["f1", "f2"]].to_numpy(float)
+             y = df["target"].to_numpy(int)
+
+
+================================================================================
+PART 3: MATPLOTLIB CHEATSHEET
+================================================================================
+
+--- 3.1 THE OBJECT-ORIENTED FIGURE / AXES MODEL ---
+
+Always use:
+  fig, ax = plt.subplots(figsize=(width, height))
+or for multiple panels:
+  fig, axes = plt.subplots(nrows, ncols, figsize=(w, h))
+  axes = axes.flatten()  # flattens 2D grid into 1D array of subplots!
+
+
+--- 3.2 PLOT TYPES ---
+
+ax.plot(x, y, label="Name", color="blue", linestyle="-", linewidth=2)
+  - Line plot.
+  - linestyles: '-' (solid), '--' (dashed), ':' (dotted), '-.' (dash-dot).
+
+ax.scatter(x, y, c=labels, cmap="viridis", s=30, marker="o", edgecolors="k", alpha=0.8)
+  - Scatter plot.
+  - c: color sequence or array of class labels for automatic coloring.
+  - cmap: colormap ('viridis', 'coolwarm', 'Blues', 'rainbow').
+  - s: marker size.
+  - edgecolors: border color around points.
+
+ax.hist(x, bins=25, color="skyblue", edgecolor="black", alpha=0.7, density=False)
+  - Histogram.
+  - density=True normalizes count to form a probability density.
+  - alpha=0.5 allows overlapping distributions to be visible.
+
+ax.bar(x, height, width=0.8, label="Label", color="royalblue")
+  - Bar chart.
+  - For grouped bars, offset x: ax.bar(x - width/2, h1), ax.bar(x + width/2, h2).
+
+ax.imshow(X, cmap="viridis", aspect="auto")
+  - Displays a 2D matrix as an image/heatmap.
+  - NOTE: Row index runs DOWN vertically, Col index runs ACROSS horizontally!
+
+ax.contourf(X, Y, Z, cmap="coolwarm", alpha=0.3)
+  - Filled contour plot for 2D decision boundaries.
+
+
+--- 3.3 REFERENCE LINES & ANNOTATIONS ---
+
+ax.axvline(x, color="red", linestyle="--", linewidth=1.5, label="Mean")
+  - Draws a vertical reference line across entire y-axis.
+
+ax.axhline(y, color="black", linestyle=":", linewidth=1.5)
+  - Draws a horizontal reference line (e.g. residual zero line).
+
+ax.text(x, y, s, ha="center", va="center", color="white", fontsize=12)
+  - Places text at coordinate (x, y).
+  - ha: horizontal alignment ('left', 'center', 'right').
+  - va: vertical alignment ('top', 'center', 'bottom').
+  - Used for annotating confusion matrix cell counts!
+
+
+--- 3.4 LABELS, LEGEND & CLEANUP ---
+
+ax.set_title("Title Text", fontsize=14, fontweight="bold")
+ax.set_xlabel("X Axis Label", fontsize=12)
+ax.set_ylabel("Y Axis Label", fontsize=12)
+ax.set_xticks(range(K))
+ax.set_xticklabels(labels)
+ax.set_yscale("log")            # Logarithmic scale for gradient descent loss curves
+ax.set_aspect("equal")          # 1:1 aspect ratio for spatial maps
+ax.legend(loc="upper right")    # Shows legend
+ax.grid(True, linestyle="--", alpha=0.6)
+ax.axis("off")                  # Hides unused subplot panel
+
+fig.colorbar(im, ax=ax)         # Adds colorbar scale to imshow
+plt.tight_layout()              # Prevents overlapping labels
+fig.savefig("output.png", dpi=150) # Save before showing!
+plt.show()                      # Displays the plot and CLEARS the figure!
+
+
+================================================================================
+PART 4: ML REVISION FORMULAE & COMMON CODE PATTERNS
+================================================================================
+
+1. Simple Linear Regression:
+   w = np.sum((x - x.mean()) * (y - y.mean())) / np.sum((x - x.mean())**2)
+   b = y.mean() - w * x.mean()
+
+2. Design Matrix:
+   A = np.c_[np.ones(len(X)), X]
+
+3. Normal Equation:
+   theta = np.linalg.solve(A.T @ A, A.T @ y)
+
+4. Ridge Regression (Intercept Exempt):
+   P = np.eye(A.shape[1])
+   P[0, 0] = 0.0
+   theta = np.linalg.solve(A.T @ A + lam * P, A.T @ y)
+
+5. Standardisation (Leak-Free):
+   mu = X_train.mean(axis=0)
+   sigma = X_train.std(axis=0)
+   sigma = np.where(sigma == 0, 1.0, sigma)
+   Z_train = (X_train - mu) / sigma
+   Z_test  = (X_test - mu) / sigma
+
+6. Sigmoid (Numerically Stable):
+   sigma_z = 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
+
+7. Logistic Regression Gradient Ascent Update:
+   theta += (lr / m) * A.T @ (y - sigmoid(A @ theta))
+
+8. Gaussian Naive Bayes Log-Conversion (No Underflow):
+   prob = sigmoid(L1 - L0)
+
+9. K-Means Assignment & Update:
+   labels = np.argmin(pairwise_distances(X, centroids), axis=1)
+   new_c = np.array([X[labels == k].mean(axis=0) if np.any(labels == k) 
+                     else centroids[k] for k in range(K)])
+
+10. Confusion Matrix Orientation:
+    [[TN, FP],
+     [FN, TP]]
+    Rows = True Class (0, 1)
+    Cols = Predicted Class (0, 1)
+================================================================================
