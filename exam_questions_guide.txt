@@ -1,0 +1,377 @@
+================================================================================
+IC-272: INTRODUCTION TO MACHINE LEARNING (IIT MANDI)
+EXAM DATASETS: EXPECTED QUESTIONS & IMPLEMENTATION GUIDE
+================================================================================
+
+OVERVIEW:
+The exam datasets across all three slots (Tuesday Set-1, Wednesday Set-2, 
+Thursday Set-3) test the 4 core pillars of the 9 lab assignments:
+
+  - Pillar 1: Linear Regression & Regularisation (Labs 4 & 5)
+  - Pillar 2: Linear / Probabilistic Classification (Labs 7 & 8)
+  - Pillar 3: Non-Linear & Distance-Based Classification (Labs 6 & 1)
+  - Pillar 4: Unsupervised Clustering (Lab 9)
+
+Below is the complete analysis and expected question breakdown for every dataset.
+
+================================================================================
+1. TUESDAY SLOT (SET-1)
+================================================================================
+
+--------------------------------------------------------------------------------
+Dataset 1: ic272_exam_bikes.csv
+--------------------------------------------------------------------------------
+  - Shape: 250 rows x 5 columns
+  - Features: age_years, km_driven_k, engine_l, owners
+  - Target: price_k (Continuous target in thousands of rupees)
+  - Associated Lab: Lab 4 (Linear Regression from Scratch)
+
+  EXPECTED QUESTIONS:
+  1. Data Inspection & Split:
+     - Print min/max of each feature.
+     - Split into train (80%) and test (20%) using seeded permutation (seed=0).
+  2. Multiple Linear Regression via Normal Equation:
+     - Prepend a column of ones: A = np.c_[np.ones(len(X)), X].
+     - Solve for weights: theta = np.linalg.solve(A.T @ A, A.T @ y).
+     - Viva question: Why np.linalg.solve instead of np.linalg.inv?
+       Answer: np.linalg.solve uses LU/Cholesky decomposition; forming the 
+       explicit inverse is numerically ill-conditioned and doubles operations.
+  3. Batch Gradient Descent:
+     - Starting from theta = 0, update: theta = theta - lr * (2/n) * A.T @ (A @ theta - y).
+     - Plot loss J(theta) = (1/n) * ||A theta - y||^2 vs iteration count.
+     - Verify convergence against Normal Equation theta.
+  4. Diagnostics & Fit Evaluation:
+     - Compute test RMSE and R^2 score:
+         RMSE = sqrt(mean((y - y_hat)^2))
+         R^2  = 1 - sum((y - y_hat)^2) / sum((y - y_bar)^2)
+     - Plot residuals (y - y_hat) vs fitted values (y_hat) with horizontal line at 0.
+       Residuals must show random scatter without funneling or curves.
+
+--------------------------------------------------------------------------------
+Dataset 2: ic272_exam_placement.csv
+--------------------------------------------------------------------------------
+  - Shape: 400 rows x 3 columns
+  - Features: cgpa (range 5.0 - 10.0), aptitude_score (range 21 - 100)
+  - Target: placed (Binary: 0 = unplaced [63%], 1 = placed [37%])
+  - Associated Lab: Lab 7 (Logistic Regression & ROC/AUC)
+
+  EXPECTED QUESTIONS:
+  1. Standardisation:
+     - Feature scales differ (CGPA ~ 7.4 vs Aptitude ~ 61.6).
+     - Compute mu and sigma on training set ONLY; apply to test set.
+  2. Logistic Regression Fitting:
+     - Sigmoid: sigma(z) = 1 / (1 + exp(-clip(z, -500, 500))).
+     - Log-likelihood: ell(theta) = sum [ y*log(h + 1e-12) + (1-y)*log(1-h + 1e-12) ].
+     - Gradient Ascent: theta = theta + (lr / m) * A.T @ (y - sigma(A @ theta)).
+     - Plot log-likelihood vs iterations (must be strictly non-decreasing).
+  3. Probability Prediction & Threshold Sweep:
+     - Predict probabilities: p = sigma(A_test @ theta).
+     - Compare classification metrics (Accuracy, Precision, Recall, F1) at 
+       threshold t = 0.5 vs threshold t = 0.3.
+     - Observation: Lowering threshold to 0.3 captures more placements (higher Recall),
+       but increases False Positives (lower Precision).
+  4. ROC Curve & AUC:
+     - Sort unique probabilities, compute TPR (Recall) and FPR at each threshold.
+     - Plot TPR vs FPR with diagonal 50% line.
+     - Compute AUC using trapezoidal rule: sum (FPR_{i+1} - FPR_i) * (TPR_{i+1} + TPR_i) / 2.
+  5. Decision Boundary:
+     - Straight line equation: theta_0 + theta_1 * z_1 + theta_2 * z_2 = 0.
+     - Convert back to raw coordinates and overlay on scatter plot.
+
+--------------------------------------------------------------------------------
+Dataset 3: ic272_exam_sensors.csv
+--------------------------------------------------------------------------------
+  - Shape: 360 rows x 4 columns
+  - Features: sensor_1, sensor_2, batch_no
+  - Target: defective (Binary: 0 [50%], 1 [50%])
+  - Associated Lab: Lab 6 (k-NN & The Scale Dominance Problem)
+
+  KEY OBSERVATION (THE TRAP):
+  - sensor_1 std = 1.73, sensor_2 std = 1.72
+  - batch_no std = 25,880.73!
+  - batch_no is an irrelevant tracking number whose enormous numeric scale 
+    swallows 99.999% of Euclidean distance.
+
+  EXPECTED QUESTIONS:
+  1. The Failure of Unstandardised k-NN:
+     - Run k-NN at k = 7 on RAW unstandardised features.
+     - Show accuracy is ~ 0.50 (cannot beat the 50% random majority baseline!).
+  2. Standardisation Fix:
+     - Standardise features using training mu and sigma.
+     - Re-run k-NN at k = 7: accuracy dramatically improves (> 90%).
+  3. Choosing k by 5-Fold Cross-Validation:
+     - Split training set into 5 folds.
+     - For each k in {1, 3, 5, 7, 9, 15, 21, 31, 51}: compute mean validation accuracy.
+     - Warning: Held-out fold must NOT be in training set passed to k-NN, 
+       otherwise points find themselves at distance 0!
+     - Plot accuracy vs k (log-scale). Peak shows optimal k; low k overfits, high k underfits.
+  4. Decision Boundary:
+     - Scatter sensor_1 vs sensor_2 colored by defective: classes form concentric
+       rings / non-linear clusters that linear models cannot separate.
+
+--------------------------------------------------------------------------------
+Dataset 4: ic272_exam_towers.csv
+--------------------------------------------------------------------------------
+  - Shape: 250 rows x 2 columns
+  - Features: x_km, y_km (spatial map coordinates in km)
+  - Target: NONE (Unsupervised Learning)
+  - Associated Lab: Lab 9 (K-Means Clustering & The Elbow Method)
+
+  EXPECTED QUESTIONS:
+  1. Visualising the Clusters:
+     - Scatter plot x_km vs y_km with equal aspect ratio.
+     - Visually identify natural geographic clusters of mobile towers.
+  2. K-Means Algorithm from Scratch:
+     - random_init(X, K, seed): pick K points without replacement.
+     - assign_clusters(X, centroids): np.argmin(pairwise_distances(X, centroids), axis=1).
+     - update_centroids(X, labels, centroids): mean of points in cluster (keep old if empty).
+     - Repeat until np.allclose(centroids, new_centroids).
+  3. Sensitivity to Initialization (Local Minima):
+     - Run K-means with K = 5 across 10 random seeds (0 to 9).
+     - Print distortion J = sum ||x_i - mu_{c_i}||^2 and iteration counts.
+     - Plot the best clustering (lowest J) vs worst clustering (highest J) side-by-side.
+  4. The Elbow Method:
+     - Run best_of_kmeans (n_init=10) for K = 1, 2, ..., 10.
+     - Plot distortion J vs K.
+     - Report the optimal K where the rate of distortion decrease flattens (the "elbow").
+
+
+================================================================================
+2. WEDNESDAY SLOT (SET-2)
+================================================================================
+
+--------------------------------------------------------------------------------
+Dataset 1: ic272_exam2_crops.csv
+--------------------------------------------------------------------------------
+  - Shape: 240 rows x 4 columns
+  - Features: rainfall_mm, fertiliser_kg, temperature_c
+  - Target: yield_t (Continuous crop yield in tonnes)
+  - Associated Lab: Lab 4 (Multiple Linear Regression)
+
+  EXPECTED QUESTIONS:
+  1. Multiple linear regression fit via Normal Equation:
+     - theta = np.linalg.solve(A.T @ A, A.T @ y).
+     - Report coefficients with appropriate units (e.g. tonnes per mm rain).
+  2. Batch Gradient Descent with different learning rates:
+     - Compare eta in {0.001, 0.005, 0.01}.
+     - Show that too large eta diverges / overflows, while small eta converges smoothly.
+  3. Metric reporting:
+     - RMSE and R^2 score on test set.
+
+--------------------------------------------------------------------------------
+Dataset 2: ic272_exam2_scores.csv
+--------------------------------------------------------------------------------
+  - Shape: 260 rows x 13 columns
+  - Features: study_hours, attendance_pct, assignment_avg, sleep_hours
+              PLUS 8 noise features (noise_1 through noise_8)
+  - Target: final_score (Continuous exam score)
+  - Associated Lab: Lab 5 (Standardisation & Ridge Regression)
+
+  KEY OBSERVATION:
+  - This dataset mirrors ic272_lab5_rent.csv with 4 real features and 8 useless noise features.
+  - In unpenalised linear regression, noise features receive non-zero weights, causing overfitting.
+
+  EXPECTED QUESTIONS:
+  1. Standardisation (Leak-Free):
+     - Must compute mu and sigma on train only, then apply to test.
+     - Explain why standardisation is mandatory before applying Ridge penalty:
+       without standardisation, penalty treats features based on unit scale rather
+       than predictive value.
+  2. Ridge Regression with Intercept Exemption:
+     - Formulation: theta = (A.T @ A + lambda * I*)^(-1) A.T @ y.
+     - Identity matrix I* has I*[0, 0] = 0 (intercept is unpenalised!).
+     - Inspect coefficients at lambda in {0, 1, 10, 100}.
+     - Check: do Ridge coefficients ever reach EXACT zero? Answer: NO, only shrunk.
+  3. 5-Fold Cross-Validation for Lambda:
+     - Sweep lambda in {0, 0.1, 0.3, 1, 3, 10, 30, 100}.
+     - Plot CV RMSE vs log(lambda). Mark the minimum.
+     - Report test RMSE at lambda = 0 (unpenalised) vs best lambda.
+
+--------------------------------------------------------------------------------
+Dataset 3: ic272_exam2_moons.csv
+--------------------------------------------------------------------------------
+  - Shape: 360 rows x 3 columns
+  - Features: feature_1, feature_2
+  - Target: label (Binary: 0 [50%], 1 [50%])
+  - Associated Lab: Lab 6 (k-NN) vs Lab 7 (Logistic Regression)
+
+  KEY OBSERVATION:
+  - "Moons" dataset forms two interlocking semicircles.
+  - Not linearly separable.
+
+  EXPECTED QUESTIONS:
+  1. Linear Model Limitation:
+     - Train Logistic Regression. Plot decision boundary.
+     - Observe that a linear boundary cannot separate interlocking moons (accuracy ~ 75-80%).
+  2. k-NN Classification:
+     - Fit k-NN classifier. It flexibly wraps around curved manifolds (accuracy > 95%).
+  3. Decision Boundary Comparison:
+     - Generate 2D grid with np.meshgrid.
+     - Plot contourf of predicted regions for Logistic Regression vs k-NN side by side.
+
+--------------------------------------------------------------------------------
+Dataset 4: ic272_exam2_atms.csv
+--------------------------------------------------------------------------------
+  - Shape: 260 rows x 2 columns
+  - Features: east_km, north_km (Cartesian map coordinates in km)
+  - Target: NONE (Unsupervised Clustering)
+  - Associated Lab: Lab 9 (K-Means Clustering)
+
+  EXPECTED QUESTIONS:
+  1. Optimal Cash Depot Placement:
+     - Group ATMs into K regional clusters.
+  2. Elbow Curve:
+     - Compute minimum distortion across 10 random starts for K in 1..10.
+     - Plot distortion vs K. Identify elbow point.
+  3. Visualising Cluster Assignments:
+     - Plot ATMs colored by assigned depot, with depot centroids marked as stars.
+
+
+================================================================================
+3. THURSDAY SLOT (SET-3)
+================================================================================
+
+--------------------------------------------------------------------------------
+Dataset 1: ic272_exam3_signal.csv
+--------------------------------------------------------------------------------
+  - Shape: 40 rows x 2 columns (Compact dataset)
+  - Feature: x (Continuous 1D signal input)
+  - Target: y (Continuous signal response)
+  - Associated Lab: Lab 4 (Simple Linear Regression Closed Form)
+
+  EXPECTED QUESTIONS:
+  1. Closed-Form Analytic Solution:
+     - w = sum((x - x_bar) * (y - y_bar)) / sum((x - x_bar)^2)
+     - b = y_bar - w * x_bar
+  2. Visualization:
+     - Scatter plot x vs y.
+     - Overlay fitted line y_pred = w * x + b.
+  3. Goodness of Fit:
+     - Calculate SSE = sum((y - y_pred)^2), RMSE, and R^2 score.
+     - Inspect residual plot to determine whether a straight line is adequate.
+
+--------------------------------------------------------------------------------
+Dataset 2: ic272_exam3_churn.csv
+--------------------------------------------------------------------------------
+  - Shape: 400 rows x 3 columns
+  - Features: monthly_charge (~200 to 2000), tenure_months (~1 to 72)
+  - Target: churned (Binary: 0 = retained [71%], 1 = churned [29%])
+  - Associated Lab: Lab 7 (Logistic Regression & Imbalanced Data)
+
+  EXPECTED QUESTIONS:
+  1. Imbalanced Classification Baseline:
+     - Majority class (0) represents 71% of data.
+     - A dumb baseline predicting 0 for all samples scores 0.71 accuracy with 0 recall!
+  2. Standardisation & Gradient Ascent:
+     - Standardise features. Fit logistic regression via gradient ascent.
+  3. Cost-Sensitive Threshold Selection:
+     - In telecom churn, missing a churner (False Negative) is far more expensive
+       than contacting a loyal customer (False Positive).
+     - Compare confusion matrix and F1 at t = 0.5 vs t = 0.3.
+     - Explain why a bank or telecom company would prefer threshold 0.3.
+  4. ROC Curve & AUC:
+     - Plot ROC curve and calculate AUC from scratch using trapezoidal integration.
+
+--------------------------------------------------------------------------------
+Dataset 3: ic272_exam3_grains.csv
+--------------------------------------------------------------------------------
+  - Shape: 300 rows x 4 columns
+  - Features: length_mm, width_mm, density
+  - Target: variety (MULTICLASS: 0 [130], 1 [100], 2 [70])
+  - Associated Lab: Lab 1 (Multiclass Metrics) & Lab 8 (Gaussian Naive Bayes)
+
+  KEY OBSERVATION:
+  - This is a MULTICLASS dataset (3 distinct grain varieties).
+
+  EXPECTED QUESTIONS:
+  1. Multiclass Classification:
+     - Train Multiclass Gaussian Naive Bayes or Multiclass k-NN.
+     - For Gaussian NB: Compute 3 priors, (3, 3) means array, and (3, 3) variances array.
+  2. Multiclass Confusion Matrix from Scratch:
+     - Compute dynamic 3x3 confusion matrix: rows = true variety, cols = predicted variety.
+  3. Per-Class and Macro Metrics:
+     - Compute Precision, Recall, and F1 for each variety separately:
+         TP_c = cm[c, c]
+         FP_c = sum(cm[:, c]) - TP_c
+         FN_c = sum(cm[c, :]) - TP_c
+     - Compute Macro-F1 = (F1_0 + F1_1 + F1_2) / 3.
+     - Validate against sklearn.metrics.classification_report.
+
+--------------------------------------------------------------------------------
+Dataset 4: ic272_exam3_shoppers.csv
+--------------------------------------------------------------------------------
+  - Shape: 220 rows x 3 columns
+  - Features: annual_income_k, spending_score, age
+  - Target: NONE (Unsupervised Clustering)
+  - Associated Lab: Lab 9 (K-Means Customer Segmentation)
+
+  EXPECTED QUESTIONS:
+  1. Feature Scale Consideration:
+     - annual_income_k (~13-119), spending_score (~6-100), age (~17-71).
+     - Standardising features vs raw features in clustering.
+  2. Customer Segmentation:
+     - Run K-means for K = 2..8.
+     - Plot elbow curve of distortion J vs K to find optimal market segments.
+  3. Visualizing Customer Segments:
+     - 2D scatter of annual_income_k vs spending_score colored by cluster.
+     - Identify segments (e.g. high-income high-spenders, low-income thrifty, etc.).
+
+
+================================================================================
+4. INSTANT EXAM IDENTIFICATION CHEAT SHEET
+================================================================================
+
+When you open your exam dataset CSV, look at its columns and values:
+
+  1. If NO target column (e.g. only x_km/y_km, east/north, or shopper traits):
+     -> QUESTION IS K-MEANS CLUSTERING (Lab 9).
+     -> Run random_init, assign_clusters, update_centroids, distortion, and elbow_method.
+
+  2. If Target is CONTINUOUS (price, yield, score, y):
+     -> If 1 feature: Simple Linear Regression closed-form (Lab 4, Task 1).
+     -> If multiple features: Normal Equation np.linalg.solve(A.T @ A, A.T @ y) + Gradient Descent (Lab 4).
+     -> If 8 "noise_*" features are present: Standardisation + Ridge Regression + K-Fold CV (Lab 5).
+
+  3. If Target is BINARY (0 or 1):
+     -> If features have normal ranges (CGPA, tenure): Logistic Regression + ROC/AUC (Lab 7).
+     -> If 1 feature has huge variance (batch_no, machine_hours): k-NN Scale Dominance (Lab 6).
+     -> If data forms concentric rings or interlocking moons: k-NN Non-linear Boundary (Lab 6).
+
+  4. If Target is MULTICLASS (0, 1, 2, ...):
+     -> Dynamic KxK confusion matrix, per-class F1, Macro-F1 (Lab 1, Task 2.3).
+     -> Multiclass Gaussian Naive Bayes (Lab 8) or Multiclass k-NN (Lab 6).
+
+================================================================================
+5. REUSABLE PYTHON MODULES READY IN YOUR WORKSPACE
+================================================================================
+
+All tested, leak-free functions can be directly imported from the `.py` files:
+
+  from lab1_refresher import (
+      column_stats, pairwise_distances, binary_confusion_matrix, 
+      binary_metrics, multiclass_confusion_matrix
+  )
+  from lab2_pipeline import (
+      train_test_split_scratch, one_hot_encode_by_hand
+  )
+  from lab4_linear_regression import (
+      fit_simple_lr, design_matrix, fit_normal_equation, 
+      fit_gradient_descent, rmse, r2_score_scratch
+  )
+  from lab5_ridge_regression import (
+      standardise, fit_ridge, k_fold_cv, soft_threshold, fit_lasso
+  )
+  from lab6_knn import (
+      knn_predict, k_fold_cv_knn, knn_predict_weighted
+  )
+  from lab7_logistic_regression import (
+      sigmoid, log_likelihood, fit_logistic, roc_curve_scratch, auc_trapezoid
+  )
+  from lab8_naive_bayes import (
+      gaussian_pdf, fit_gaussian_nb, predict_proba_nb, fit_categorical_nb
+  )
+  from lab9_kmeans import (
+      random_init, assign_clusters, update_centroids, distortion, 
+      kmeans, best_of_kmeans, elbow_method, kmeans_pp_init
+  )
+================================================================================
